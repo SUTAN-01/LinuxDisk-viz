@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import time
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -13,8 +14,10 @@ from .services.archive import ArchiveManager
 from .services.upload import UploadManager
 from .services.dup_detector import DupDetector
 
+logger = logging.getLogger(__name__)
 
-async def cleanup_once(scans_dir, ttl_seconds: int) -> int:
+
+def cleanup_once(scans_dir: Path, ttl_seconds: int) -> int:
     """One-shot cleanup. Deletes *.sqlite files older than ttl. Returns count deleted."""
     scans_dir = Path(scans_dir)
     if not scans_dir.exists():
@@ -37,13 +40,13 @@ async def cleanup_once(scans_dir, ttl_seconds: int) -> int:
     return deleted
 
 
-async def cleanup_expired_scans(interval_seconds: int = 300):
+async def cleanup_expired_scans(interval_seconds: int = 300) -> None:
     """Periodic cleanup loop. Runs every interval_seconds."""
     while True:
         try:
-            await cleanup_once(settings.scans_dir, settings.scan_ttl_seconds)
+            await asyncio.to_thread(cleanup_once, settings.scans_dir, settings.scan_ttl_seconds)
         except Exception:
-            pass
+            logger.exception("cleanup iteration failed")
         await asyncio.sleep(interval_seconds)
 
 
