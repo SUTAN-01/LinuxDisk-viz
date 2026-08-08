@@ -19,13 +19,7 @@ class PackReq(BaseModel):
 
 def _get_fileops() -> FileOps:
     from ..main import app
-    mgr = app.state.scan_manager
-    root = "/"
-    for rs in mgr._scans.values():
-        if rs.finished:
-            root = rs.root
-            break
-    return FileOps(root=root)
+    return FileOps.from_app(app)
 
 
 def _get_manager():

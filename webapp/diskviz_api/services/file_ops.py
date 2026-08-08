@@ -12,6 +12,17 @@ class FileOps:
         self.root = root
         self.root_resolved = Path(root).resolve(strict=False)
 
+    @classmethod
+    def from_app(cls, app) -> "FileOps":
+        """Pick root from the first finished scan; fall back to '/'."""
+        mgr = app.state.scan_manager
+        root = "/"
+        for rs in mgr._scans.values():
+            if rs.finished:
+                root = rs.root
+                break
+        return cls(root=root)
+
     def _assert_safe_path(self, p: str):
         real = Path(p).resolve(strict=False)
         # Block root / (also Windows drive root like C:\)
