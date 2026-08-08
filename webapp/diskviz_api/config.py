@@ -1,3 +1,4 @@
+import hashlib
 from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -13,5 +14,13 @@ class Settings(BaseSettings):
     bind_port: int = 8765
     scan_ttl_seconds: int = 86400
     max_concurrent_scans: int = 1
+
+    @property
+    def read_token_sha256(self) -> str:
+        return hashlib.sha256(self.read_token.encode()).hexdigest()
+
+    @property
+    def write_token_sha256(self) -> str:
+        return hashlib.sha256(self.write_token.encode()).hexdigest()
 
 settings = Settings()
