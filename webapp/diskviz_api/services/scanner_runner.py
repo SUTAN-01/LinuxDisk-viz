@@ -78,7 +78,7 @@ class ScanManager:
                 "path": frame["path"],
                 "parent": str(Path(frame["path"]).parent) if frame["path"] != "/" else "",
                 "name": Path(frame["path"]).name,
-                "size": frame["size"], "type": frame["type"], "ext": frame.get("ext", ""),
+                "size": frame["size"], "type": frame.get("kind", "file"), "ext": frame.get("ext", ""),
                 "mode": frame.get("mode", 0), "mtime": frame.get("mtime", 0),
                 "inode": frame.get("inode", 0), "uid": frame.get("uid", 0),
                 "gid": frame.get("gid", 0), "nlink": frame.get("nlink", 0),
