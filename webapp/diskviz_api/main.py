@@ -1,7 +1,10 @@
+import asyncio
+import time
 from contextlib import asynccontextmanager
+from pathlib import Path
+
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
-from pathlib import Path
 
 from .config import settings
 from .routers import health, scan, tree, file, ops, archive, upload, reports
@@ -9,6 +12,40 @@ from .services.scanner_runner import ScanManager
 from .services.archive import ArchiveManager
 from .services.upload import UploadManager
 from .services.dup_detector import DupDetector
+
+
+async def cleanup_once(scans_dir, ttl_seconds: int) -> int:
+    """One-shot cleanup. Deletes *.sqlite files older than ttl. Returns count deleted."""
+    scans_dir = Path(scans_dir)
+    if not scans_dir.exists():
+        return 0
+    cutoff = time.time() - ttl_seconds
+    deleted = 0
+    for f in scans_dir.iterdir():
+        if not f.is_file() or f.suffix != ".sqlite":
+            continue
+        try:
+            mtime = f.stat().st_mtime
+        except OSError:
+            continue
+        if mtime < cutoff:
+            try:
+                f.unlink()
+                deleted += 1
+            except OSError:
+                pass
+    return deleted
+
+
+async def cleanup_expired_scans(interval_seconds: int = 300):
+    """Periodic cleanup loop. Runs every interval_seconds."""
+    while True:
+        try:
+            await cleanup_once(settings.scans_dir, settings.scan_ttl_seconds)
+        except Exception:
+            pass
+        await asyncio.sleep(interval_seconds)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -20,8 +57,16 @@ async def lifespan(app: FastAPI):
         app.state.upload_manager = UploadManager(scans_dir=settings.scans_dir)
     if not hasattr(app.state, "dup_detector"):
         app.state.dup_detector = DupDetector()
-    yield
-    await app.state.scan_manager.cancel_all()
+    app.state.cleanup_task = asyncio.create_task(cleanup_expired_scans())
+    try:
+        yield
+    finally:
+        app.state.cleanup_task.cancel()
+        try:
+            await app.state.cleanup_task
+        except asyncio.CancelledError:
+            pass
+        await app.state.scan_manager.cancel_all()
 
 app = FastAPI(title="diskviz", version="0.1.0", lifespan=lifespan)
 app.include_router(health.router)
