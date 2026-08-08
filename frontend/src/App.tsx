@@ -1,5 +1,7 @@
 import { useStore } from "./store";
 import { TokenLogin } from "./components/TokenLogin";
+import { Breadcrumb } from "./components/Breadcrumb";
+import { TreemapView } from "./views/TreemapView";
 
 export default function App() {
   const {
@@ -11,6 +13,7 @@ export default function App() {
     view,
     setView,
     setScanId,
+    setCurrentPath,
   } = useStore();
 
   if (!readToken || !writeToken) {
@@ -50,9 +53,15 @@ export default function App() {
           <div>报告</div>
           <div>历史</div>
         </nav>
-        <main style={{ flex: 1, padding: "8px", minWidth: 0 }}>
-          <div aria-label="breadcrumb">{currentPath}</div>
-          <div>view: {view}</div>
+        <main style={{ flex: 1, padding: "8px", minWidth: 0, display: "flex", flexDirection: "column" }}>
+          <Breadcrumb path={currentPath} onNavigate={setCurrentPath} />
+          <div style={{ flex: 1, minHeight: 0, marginTop: "8px" }}>
+            {view === "treemap" ? (
+              <TreemapView entries={[]} onDrilldown={setCurrentPath} />
+            ) : (
+              <div style={{ color: "#999" }}>view: {view}</div>
+            )}
+          </div>
         </main>
         <aside
           style={{
