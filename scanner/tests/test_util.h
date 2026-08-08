@@ -52,6 +52,25 @@ inline bool path_is_dir(const std::string& p) {
     return stat(p.c_str(), &st) == 0 && (st.st_mode & S_IFMT) == S_IFDIR;
 }
 
+// Recursively create a directory path (like mkdir -p). Idempotent: existing
+// directories are left untouched. Skips the Windows drive-letter prefix so
+// e.g. "C:\\..." is not treated as a creatable component.
+inline void make_dirs(const std::string& p) {
+    if (p.empty() || path_is_dir(p)) return;
+    size_t sep = std::string::npos;
+    for (size_t i = p.size(); i > 0; --i) {
+        if (p[i - 1] == '/' || p[i - 1] == '\\') { sep = i - 1; break; }
+    }
+    if (sep != std::string::npos && sep > 0) {
+        std::string parent = p.substr(0, sep);
+#ifdef _WIN32
+        if (!(parent.size() == 2 && parent[1] == ':'))
+#endif
+            make_dirs(parent);
+    }
+    DISKVIZ_MKDIR(p.c_str());
+}
+
 // Recursively remove a directory tree (or single file). Idempotent: a missing
 // path is not an error.
 inline void remove_tree(const std::string& p) {
@@ -64,5 +83,30 @@ inline void remove_tree(const std::string& p) {
     std::remove(p.c_str());
     std::system(cmd.c_str());
 }
+
+// RAII temp directory. Creates a fresh dir under the system temp area named
+// <name> on construction and recursively removes it on destruction. Avoids
+// std::filesystem (broken on g++ 8.1.0 / MinGW).
+class TestDir {
+public:
+    explicit TestDir(const std::string& name) {
+        path_ = join(temp_dir(), name);
+        remove_tree(path_);
+        make_dir(path_);
+    }
+    ~TestDir() { remove_tree(path_); }
+    TestDir(const TestDir&) = delete;
+    TestDir& operator=(const TestDir&) = delete;
+
+    const std::string& path() const { return path_; }
+
+    void create_dir(const std::string& rel) { make_dirs(join(path_, rel)); }
+    void create_file(const std::string& rel, const std::string& content) {
+        make_file(join(path_, rel), content);
+    }
+
+private:
+    std::string path_;
+};
 
 }  // namespace testutil

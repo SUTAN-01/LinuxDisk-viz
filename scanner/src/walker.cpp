@@ -4,6 +4,11 @@
 #include <string>
 #include <vector>
 #include <functional>
+#include <memory>
+
+#include "ndjson_writer.h"
+#include "stat_pool.h"
+#include "cache.h"
 
 #ifndef _WIN32
 #include <fnmatch.h>
@@ -111,4 +116,87 @@ void walk(const std::string& root,
     nftw(root.c_str(), nftw_cb, 32, flags);
     g_callback = nullptr;
     g_excludes = nullptr;
+}
+
+namespace {
+
+std::string type_from_mode(int32_t mode) {
+    if (S_ISDIR(mode)) return "dir";
+    if (S_ISREG(mode)) return "file";
+#ifndef _WIN32
+    if (S_ISLNK(mode)) return "link";
+#endif
+    return "other";
+}
+
+// Extension = substring after the last '.' that comes after the last path
+// separator. A leading dot (hidden file like ".bashrc") is not an extension.
+std::string ext_from_path(const std::string& path) {
+    size_t last_sep = std::string::npos;
+    for (size_t i = 0; i < path.size(); ++i) {
+        if (path[i] == '/' || path[i] == '\\') last_sep = i;
+    }
+    size_t last_dot = path.rfind('.');
+    if (last_dot == std::string::npos) return "";
+    if (last_sep != std::string::npos && last_dot <= last_sep) return "";
+    if (last_sep != std::string::npos && last_dot == last_sep + 1) return "";
+    if (last_sep == std::string::npos && last_dot == 0) return "";
+    return path.substr(last_dot + 1);
+}
+
+}  // namespace
+
+WalkResult walk_and_stat(const std::string& root, NdjsonWriter& writer,
+                         const std::string& cache_path, int workers,
+                         const std::vector<std::string>& excludes) {
+    WalkResult result{0, 0, 0, 0};
+
+    // 1. Collect all paths by walking the tree.
+    std::vector<std::string> paths;
+    walk(root, [&](const std::string& p) { paths.push_back(p); }, excludes);
+
+    // 2. Optionally open the cache DB. v1: no real lookups yet; best-effort.
+    std::unique_ptr<Cache> cache;
+    if (!cache_path.empty()) {
+        try {
+            cache = std::make_unique<Cache>(cache_path);
+            cache->open();
+        } catch (...) {
+            cache.reset();
+        }
+    }
+
+    // 3. Stat every path with the thread pool. The StatPool invokes the
+    // callback on the calling thread, so no synchronization is needed here.
+    StatPool pool(workers);
+    pool.run(paths, [&](const std::string& path, const StatResult& r) {
+        ++result.total_entries;
+        if (!r.ok) {
+            writer.write_warn(path, r.err_code, "stat failed");
+            return;
+        }
+        result.total_bytes += r.size;
+        ++result.cache_misses;  // v1: real cache integration comes later
+        Entry e{};
+        e.path = path;
+        e.size = r.size;
+        e.type = type_from_mode(r.mode);
+        e.ext = ext_from_path(path);
+        e.mode = r.mode;
+        e.mtime = r.mtime;
+        e.inode = r.inode;
+        e.uid = r.uid;
+        e.gid = r.gid;
+        e.nlink = r.nlink;
+        e.cached = false;
+        writer.write_entry(e);
+    });
+
+    // 4. Flush + close the cache if it was opened.
+    if (cache) {
+        cache->flush_batch();
+        cache->close();
+    }
+
+    return result;
 }
