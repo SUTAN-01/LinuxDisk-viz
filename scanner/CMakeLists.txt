@@ -11,8 +11,9 @@ add_executable(disk-scanner
     src/main.cpp
     src/ndjson_writer.cpp
     src/walker.cpp
+    src/stat_pool.cpp
 )
-target_include_directories(disk-scanner PRIVATE src)
+target_include_directories(disk-scanner PRIVATE src third_party)
 
 enable_testing()
 
@@ -27,10 +28,12 @@ add_executable(disk_scanner_tests
     tests/test_smoke.cpp
     tests/test_ndjson_writer.cpp
     tests/test_walker.cpp
+    tests/test_stat_pool.cpp
     src/ndjson_writer.cpp
     src/walker.cpp
+    src/stat_pool.cpp
 )
-target_include_directories(disk_scanner_tests PRIVATE src)
+target_include_directories(disk_scanner_tests PRIVATE src third_party)
 target_link_libraries(disk_scanner_tests PRIVATE GTest::gtest_main)
 
 include(GoogleTest)
