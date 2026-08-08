@@ -11,6 +11,7 @@
 
 #include "walker.h"
 #include "ndjson_writer.h"
+#include "hasher.h"
 
 #ifdef _WIN32
 #include <process.h>
@@ -25,6 +26,7 @@ namespace {
 void print_usage() {
     std::cout <<
         "Usage: disk-scanner [options]\n"
+        "       disk-scanner hash   (reads file paths from stdin, one per line)\n"
         "\n"
         "Scan a directory tree and emit NDJSON (one JSON object per line) to stdout.\n"
         "\n"
@@ -44,9 +46,51 @@ void print_usage() {
         "  --help               Print this help and exit\n";
 }
 
+// Minimal JSON string escaping for paths emitted by the hash subcommand.
+std::string esc_json(const std::string& s) {
+    std::string out;
+    out.reserve(s.size() + 8);
+    for (char c : s) {
+        switch (c) {
+            case '"':  out += "\\\""; break;
+            case '\\': out += "\\\\"; break;
+            case '\n': out += "\\n"; break;
+            case '\r': out += "\\r"; break;
+            case '\t': out += "\\t"; break;
+            default:   out += c; break;
+        }
+    }
+    return out;
+}
+
+int run_hash_subcommand() {
+    std::vector<std::string> paths;
+    std::string line;
+    while (std::getline(std::cin, line)) {
+        if (!line.empty()) paths.push_back(line);
+    }
+    auto groups = hash_files(paths, 10485760);  // default min size 10MB
+    for (const auto& g : groups) {
+        std::cout << "{\"type\":\"dup_group\",\"size\":" << g.size
+                  << ",\"hash_partial\":\"" << g.hash_partial
+                  << "\",\"hash_full\":\"" << g.hash_full
+                  << "\",\"paths\":[";
+        for (size_t i = 0; i < g.paths.size(); ++i) {
+            if (i) std::cout << ",";
+            std::cout << "\"" << esc_json(g.paths[i]) << "\"";
+        }
+        std::cout << "]}\n";
+    }
+    return 0;
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
+    if (argc >= 2 && std::string(argv[1]) == "hash") {
+        return run_hash_subcommand();
+    }
+
     std::string root = ".";
     bool ndjson = true;
     std::string sqlite_path;

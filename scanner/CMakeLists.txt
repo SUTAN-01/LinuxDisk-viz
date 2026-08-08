@@ -19,6 +19,8 @@ add_executable(disk-scanner
     src/walker.cpp
     src/stat_pool.cpp
     src/cache.cpp
+    src/hasher.cpp
+    third_party/xxhash.c
 )
 target_include_directories(disk-scanner PRIVATE src third_party)
 target_link_libraries(disk-scanner PRIVATE sqlite3)
@@ -41,10 +43,13 @@ add_executable(disk_scanner_tests
     tests/test_integration.cpp
     tests/test_cli.cpp
     tests/test_error_handling.cpp
+    tests/test_hasher.cpp
     src/ndjson_writer.cpp
     src/walker.cpp
     src/stat_pool.cpp
     src/cache.cpp
+    src/hasher.cpp
+    third_party/xxhash.c
 )
 target_include_directories(disk_scanner_tests PRIVATE src third_party)
 target_link_libraries(disk_scanner_tests PRIVATE GTest::gtest_main sqlite3)
