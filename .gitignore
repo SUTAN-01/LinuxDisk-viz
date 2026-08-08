@@ -1,0 +1,26 @@
+# Build artifacts
+scanner/build/
+frontend/node_modules/
+frontend/dist/
+webapp/diskviz_api/static/
+*.tar.gz
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+.benchmarks/
+
+# Editor
+.vscode/
+.idea/
+
+# Runtime
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+.superpowers/
