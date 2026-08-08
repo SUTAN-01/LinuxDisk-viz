@@ -39,6 +39,7 @@ add_executable(disk_scanner_tests
     tests/test_stat_pool.cpp
     tests/test_cache.cpp
     tests/test_integration.cpp
+    tests/test_cli.cpp
     src/ndjson_writer.cpp
     src/walker.cpp
     src/stat_pool.cpp
@@ -48,4 +49,4 @@ target_include_directories(disk_scanner_tests PRIVATE src third_party)
 target_link_libraries(disk_scanner_tests PRIVATE GTest::gtest_main sqlite3)
 
 include(GoogleTest)
-gtest_discover_tests(disk_scanner_tests)
+gtest_discover_tests(disk_scanner_tests WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
