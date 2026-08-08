@@ -40,6 +40,7 @@ add_executable(disk_scanner_tests
     tests/test_cache.cpp
     tests/test_integration.cpp
     tests/test_cli.cpp
+    tests/test_error_handling.cpp
     src/ndjson_writer.cpp
     src/walker.cpp
     src/stat_pool.cpp

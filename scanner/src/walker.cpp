@@ -5,6 +5,8 @@
 #include <vector>
 #include <functional>
 #include <memory>
+#include <atomic>
+#include <csignal>
 
 #include "ndjson_writer.h"
 #include "stat_pool.h"
@@ -15,6 +17,16 @@
 #endif
 
 namespace {
+
+// SIGINT graceful-cancel flag. Set by the signal handler installed in
+// walk_and_stat; the stat callback checks it to stop emitting new frames.
+std::atomic<bool> g_cancelled{false};
+extern "C" void sigint_handler(int) { g_cancelled = true; }
+
+// nftw does not accept user data portably; use thread_local globals.
+thread_local std::function<void(const std::string&)>* g_callback = nullptr;
+thread_local const std::vector<std::string>* g_excludes = nullptr;
+thread_local WalkWarnFn* g_warn = nullptr;
 
 #ifdef _WIN32
 // MinGW lacks <fnmatch.h>; provide a portable glob matcher with
@@ -70,10 +82,6 @@ static bool glob_match(const char* pattern, const char* str) {
 }
 #endif
 
-// nftw does not accept user data portably; use thread_local globals.
-thread_local std::function<void(const std::string&)>* g_callback = nullptr;
-thread_local const std::vector<std::string>* g_excludes = nullptr;
-
 std::string basename_of(const char* fpath) {
     const char* base = fpath;
     for (const char* p = fpath; *p; ++p) {
@@ -84,8 +92,18 @@ std::string basename_of(const char* fpath) {
 
 int nftw_cb(const char* fpath, const struct stat* /*sb*/,
             int typeflag, struct FTW* /*ftwbuf*/) {
-    // Permission/stat errors: skip silently for now (warn frames in Task 11).
-    if (typeflag == FTW_DNR || typeflag == FTW_NS) {
+    // Traversal errors: emit a warn frame if a warn callback is registered,
+    // then skip the offending subtree/entry without aborting the walk.
+    if (typeflag == FTW_DNR) {
+        if (g_warn && *g_warn) {
+            (*g_warn)(fpath, "EACCES", "directory not readable");
+        }
+        return FTW_SKIP_SUBTREE;
+    }
+    if (typeflag == FTW_NS) {
+        if (g_warn && *g_warn) {
+            (*g_warn)(fpath, "EIO", "stat failed");
+        }
         return FTW_CONTINUE;
     }
     // Exclude by glob match against basename.
@@ -108,14 +126,18 @@ int nftw_cb(const char* fpath, const struct stat* /*sb*/,
 void walk(const std::string& root,
           std::function<void(const std::string&)> callback,
           const std::vector<std::string>& excludes,
-          bool follow_symlinks) {
+          bool follow_symlinks,
+          WalkWarnFn warn) {
     g_callback = &callback;
     g_excludes = &excludes;
+    WalkWarnFn* warn_ptr = warn ? &warn : nullptr;
+    g_warn = warn_ptr;
     int flags = FTW_ACTIONRETVAL;
     if (!follow_symlinks) flags |= FTW_PHYS;
     nftw(root.c_str(), nftw_cb, 32, flags);
     g_callback = nullptr;
     g_excludes = nullptr;
+    g_warn = nullptr;
 }
 
 namespace {
@@ -151,9 +173,19 @@ WalkResult walk_and_stat(const std::string& root, NdjsonWriter& writer,
                          const std::vector<std::string>& excludes) {
     WalkResult result{0, 0, 0, 0};
 
-    // 1. Collect all paths by walking the tree.
+    // Install a SIGINT handler so Ctrl+C requests a graceful cancel: the stat
+    // callback stops emitting new frames instead of aborting mid-write.
+    g_cancelled = false;
+    std::signal(SIGINT, sigint_handler);
+
+    // 1. Collect all paths by walking the tree. Traversal errors
+    // (permission-denied dirs, stat failures) become warn frames.
     std::vector<std::string> paths;
-    walk(root, [&](const std::string& p) { paths.push_back(p); }, excludes);
+    walk(root, [&](const std::string& p) { paths.push_back(p); }, excludes,
+         false,
+         [&](const std::string& path, const std::string& code, const std::string& msg) {
+             writer.write_warn(path, code, msg);
+         });
 
     // 2. Optionally open the cache DB. v1: no real lookups yet; best-effort.
     std::unique_ptr<Cache> cache;
@@ -170,6 +202,9 @@ WalkResult walk_and_stat(const std::string& root, NdjsonWriter& writer,
     // callback on the calling thread, so no synchronization is needed here.
     StatPool pool(workers);
     pool.run(paths, [&](const std::string& path, const StatResult& r) {
+        if (g_cancelled.load()) {
+            return;  // graceful cancel: stop emitting new frames
+        }
         ++result.total_entries;
         if (!r.ok) {
             writer.write_warn(path, r.err_code, "stat failed");
@@ -191,6 +226,9 @@ WalkResult walk_and_stat(const std::string& root, NdjsonWriter& writer,
         e.cached = false;
         writer.write_entry(e);
     });
+
+    // Restore default SIGINT handling.
+    std::signal(SIGINT, SIG_DFL);
 
     // 4. Flush + close the cache if it was opened.
     if (cache) {
