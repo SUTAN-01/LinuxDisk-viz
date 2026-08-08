@@ -7,7 +7,11 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_compile_options(-O3 -Wall -Wextra)
 
-add_executable(disk-scanner src/main.cpp)
+add_executable(disk-scanner
+    src/main.cpp
+    src/ndjson_writer.cpp
+)
+target_include_directories(disk-scanner PRIVATE src)
 
 enable_testing()
 
@@ -18,7 +22,12 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(googletest)
 
-add_executable(disk_scanner_tests tests/test_smoke.cpp)
+add_executable(disk_scanner_tests
+    tests/test_smoke.cpp
+    tests/test_ndjson_writer.cpp
+    src/ndjson_writer.cpp
+)
+target_include_directories(disk_scanner_tests PRIVATE src)
 target_link_libraries(disk_scanner_tests PRIVATE GTest::gtest_main)
 
 include(GoogleTest)
