@@ -14,8 +14,8 @@ interface ScanProgressProps {
   scanId: string;
   onComplete: (result: DoneFrame) => void;
   onCancel: () => void;
-  /** Factory for the WebSocket. Defaults to a real WebSocket on the given path. */
-  createSocket?: () => SocketLike;
+  /** Factory for the WebSocket. Must include auth token in URL. */
+  createSocket: () => SocketLike;
 }
 
 interface ProgressFrame {
@@ -73,9 +73,7 @@ export function ScanProgress({ scanId, onComplete, onCancel, createSocket }: Sca
   const [showWarnings, setShowWarnings] = useState(false);
 
   useEffect(() => {
-    const socket = createSocket
-      ? createSocket()
-      : new WebSocket(`/ws/scan/${scanId}?token=`);
+    const socket = createSocket();
     socketRef.current = socket;
 
     socket.onopen = () => setConnected(true);

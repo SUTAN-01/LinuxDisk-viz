@@ -3,7 +3,6 @@
 build:
 	cd scanner && cmake -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build -j
 	cd frontend && npm ci && npm run build
-	cp -r frontend/dist/* webapp/diskviz_api/static/
 
 test:
 	cd scanner/build && ctest --output-on-failure
