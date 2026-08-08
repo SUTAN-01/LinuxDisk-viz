@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Query
 
 from ..auth import require_token
 from ..services.file_ops import FileOps
+from ..services.upload import UploadConflictError
 
 router = APIRouter()
 
@@ -74,6 +75,8 @@ async def complete_upload(
         final_path = mgr.complete(upload_id, filename)
     except KeyError:
         raise HTTPException(404, "upload session not found")
+    except UploadConflictError as e:
+        raise HTTPException(409, str(e))
     except ValueError as e:
         raise HTTPException(400, str(e))
     return {"upload_id": upload_id, "final_path": final_path}
