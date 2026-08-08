@@ -62,7 +62,7 @@ export class ApiClient {
       const err: ApiError = { status: resp.status, message: msg };
       throw err;
     }
-    const ct = resp.headers?.get("content-type") || "";
+    const ct = resp.headers.get("content-type") || "";
     if (ct.includes("application/json")) {
       return resp.json();
     }
