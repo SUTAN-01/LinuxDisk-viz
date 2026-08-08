@@ -4,7 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 
 from .config import settings
-from .routers import health, scan, tree
+from .routers import health, scan, tree, file
 from .services.scanner_runner import ScanManager
 
 @asynccontextmanager
@@ -18,6 +18,7 @@ app = FastAPI(title="diskviz", version="0.1.0", lifespan=lifespan)
 app.include_router(health.router)
 app.include_router(scan.router)
 app.include_router(tree.router)
+app.include_router(file.router)
 
 static_dir = Path(__file__).parent / "static"
 if static_dir.exists():
