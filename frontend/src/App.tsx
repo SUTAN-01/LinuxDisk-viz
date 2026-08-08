@@ -1,6 +1,7 @@
 import { useStore } from "./store";
 import { TokenLogin } from "./components/TokenLogin";
 import { Breadcrumb } from "./components/Breadcrumb";
+import { FileDetails } from "./components/FileDetails";
 import { TreemapView } from "./views/TreemapView";
 import { BarListView } from "./views/BarListView";
 
@@ -15,6 +16,7 @@ export default function App() {
     setView,
     setScanId,
     setCurrentPath,
+    selectedEntry,
   } = useStore();
 
   if (!readToken || !writeToken) {
@@ -71,10 +73,11 @@ export default function App() {
             width: "240px",
             borderLeft: "1px solid #ccc",
             padding: "8px",
+            overflowY: "auto",
           }}
         >
-          <div>详情</div>
-          <div>操作</div>
+          <div style={{ fontWeight: 600, marginBottom: "8px" }}>详情</div>
+          <FileDetails entry={selectedEntry} onAction={() => {}} />
         </aside>
       </div>
       <footer
