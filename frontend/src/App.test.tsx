@@ -13,6 +13,7 @@ describe("App", () => {
       view: "treemap",
       selectedEntry: null,
     });
+    window.history.replaceState({}, "", "/");
   });
 
   it("renders diskviz title", () => {
@@ -26,5 +27,18 @@ describe("App", () => {
     expect(screen.getByRole("banner")).toBeInTheDocument();
     expect(screen.getByText(/视图/i)).toBeInTheDocument();
     expect(screen.getByRole("contentinfo")).toBeInTheDocument();
+  });
+
+  it("syncs view and path to URL query params", () => {
+    window.history.pushState({}, "", "/?view=bars&path=/var/log");
+    useStore.getState().setTokens("r", "w");
+    render(<App />);
+    expect(screen.getByText(/条形排行/)).toHaveClass("active");
+  });
+
+  it("marks treemap button active by default", () => {
+    useStore.getState().setTokens("r", "w");
+    render(<App />);
+    expect(screen.getByText("Treemap")).toHaveClass("active");
   });
 });
