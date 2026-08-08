@@ -8,6 +8,10 @@ export class ApiClient {
   private baseUrl: string;
   private readToken: string;
   private writeToken: string;
+  /** Fired on 401 — caller should clear tokens and return to login. */
+  onUnauthorized?: () => void;
+  /** Fired on 403 — caller should prompt for write-token re-entry. */
+  onConfirmFailed?: () => void;
 
   constructor(baseUrl: string, readToken: string, writeToken: string) {
     this.baseUrl = baseUrl.replace(/\/$/, "");
@@ -59,6 +63,8 @@ export class ApiClient {
       } catch {
         /* not json */
       }
+      if (resp.status === 401) this.onUnauthorized?.();
+      if (resp.status === 403) this.onConfirmFailed?.();
       const err: ApiError = { status: resp.status, message: msg };
       throw err;
     }

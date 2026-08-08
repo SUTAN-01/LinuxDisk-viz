@@ -131,4 +131,54 @@ describe("ApiClient", () => {
     expect(wsMock).toHaveBeenCalledWith("wss://x/ws/scan/abc?token=r");
     vi.unstubAllGlobals();
   });
+
+  it("fires onUnauthorized on 401", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 401,
+      statusText: "Unauthorized",
+      json: () => Promise.resolve({ detail: "bad token" }),
+    });
+    const onUnauthorized = vi.fn();
+    const client = new ApiClient("http://x", "r", "w");
+    client._fetch = fetchMock;
+    client.onUnauthorized = onUnauthorized;
+    await expect(client.get("/scan")).rejects.toMatchObject({ status: 401 });
+    expect(onUnauthorized).toHaveBeenCalledTimes(1);
+  });
+
+  it("fires onConfirmFailed on 403", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 403,
+      statusText: "Forbidden",
+      json: () => Promise.resolve({ detail: "confirm token invalid" }),
+    });
+    const onConfirmFailed = vi.fn();
+    const client = new ApiClient("http://x", "r", "w");
+    client._fetch = fetchMock;
+    client.onConfirmFailed = onConfirmFailed;
+    await expect(client.post("/ops/delete", { paths: [] })).rejects.toMatchObject({
+      status: 403,
+    });
+    expect(onConfirmFailed).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not fire callbacks on ok responses", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: new Headers({ "content-type": "application/json" }),
+      json: () => Promise.resolve({}),
+    });
+    const onUnauthorized = vi.fn();
+    const onConfirmFailed = vi.fn();
+    const client = new ApiClient("http://x", "r", "w");
+    client._fetch = fetchMock;
+    client.onUnauthorized = onUnauthorized;
+    client.onConfirmFailed = onConfirmFailed;
+    await client.get("/health");
+    expect(onUnauthorized).not.toHaveBeenCalled();
+    expect(onConfirmFailed).not.toHaveBeenCalled();
+  });
 });
