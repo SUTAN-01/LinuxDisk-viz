@@ -2,6 +2,7 @@ import { useStore } from "./store";
 import { TokenLogin } from "./components/TokenLogin";
 import { Breadcrumb } from "./components/Breadcrumb";
 import { TreemapView } from "./views/TreemapView";
+import { BarListView } from "./views/BarListView";
 
 export default function App() {
   const {
@@ -58,6 +59,8 @@ export default function App() {
           <div style={{ flex: 1, minHeight: 0, marginTop: "8px" }}>
             {view === "treemap" ? (
               <TreemapView entries={[]} onDrilldown={setCurrentPath} />
+            ) : view === "bars" ? (
+              <BarListView entries={[]} onDrilldown={setCurrentPath} />
             ) : (
               <div style={{ color: "#999" }}>view: {view}</div>
             )}
