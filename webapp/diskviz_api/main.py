@@ -4,9 +4,10 @@ from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 
 from .config import settings
-from .routers import health, scan, tree, file, ops, archive
+from .routers import health, scan, tree, file, ops, archive, upload
 from .services.scanner_runner import ScanManager
 from .services.archive import ArchiveManager
+from .services.upload import UploadManager
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -14,6 +15,8 @@ async def lifespan(app: FastAPI):
         app.state.scan_manager = ScanManager()
     if not hasattr(app.state, "archive_manager"):
         app.state.archive_manager = ArchiveManager(scans_dir=settings.scans_dir)
+    if not hasattr(app.state, "upload_manager"):
+        app.state.upload_manager = UploadManager(scans_dir=settings.scans_dir)
     yield
     await app.state.scan_manager.cancel_all()
 
@@ -24,6 +27,7 @@ app.include_router(tree.router)
 app.include_router(file.router)
 app.include_router(ops.router)
 app.include_router(archive.router)
+app.include_router(upload.router)
 
 static_dir = Path(__file__).parent / "static"
 if static_dir.exists():
