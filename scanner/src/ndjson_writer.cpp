@@ -45,7 +45,7 @@ void NdjsonWriter::write_entry(const Entry& e) {
     out_ << "{\"type\":\"entry\""
          << ",\"path\":\"" << escape_json(e.path) << "\""
          << ",\"size\":" << e.size
-         << ",\"type\":\"" << escape_json(e.type) << "\""
+         << ",\"kind\":\"" << escape_json(e.type) << "\""
          << ",\"ext\":\"" << escape_json(e.ext) << "\""
          << ",\"mode\":" << e.mode
          << ",\"mtime\":" << e.mtime

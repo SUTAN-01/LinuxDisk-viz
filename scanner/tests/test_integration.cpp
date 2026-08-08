@@ -21,6 +21,6 @@ TEST(Integration, WalkAndStatProducesEntries) {
     EXPECT_GT(r.total_bytes, 0);
     std::string s = out.str();
     EXPECT_NE(s.find("\"type\":\"entry\""), std::string::npos);
-    EXPECT_NE(s.find("\"type\":\"dir\""), std::string::npos);
-    EXPECT_NE(s.find("\"type\":\"file\""), std::string::npos);
+    EXPECT_NE(s.find("\"kind\":\"dir\""), std::string::npos);
+    EXPECT_NE(s.find("\"kind\":\"file\""), std::string::npos);
 }
