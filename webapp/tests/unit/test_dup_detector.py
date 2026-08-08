@@ -82,3 +82,15 @@ async def test_get_status_unknown_job_raises():
     det = DupDetector()
     with pytest.raises(KeyError):
         det.get_status("does-not-exist")
+
+
+async def test_detect_same_prefix_different_suffix_not_grouped(tmp_path):
+    # Two files of equal size (>4KB) sharing the first 4KB but differing after.
+    prefix = b"A" * 4096
+    (tmp_path / "x.bin").write_bytes(prefix + b"B" * 4096)
+    (tmp_path / "y.bin").write_bytes(prefix + b"C" * 4096)
+    det = DupDetector()
+    groups = await det.detect(
+        [str(tmp_path / "x.bin"), str(tmp_path / "y.bin")], min_size=0
+    )
+    assert groups == []

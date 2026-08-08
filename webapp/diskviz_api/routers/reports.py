@@ -10,6 +10,13 @@ from ..auth import require_token
 router = APIRouter()
 
 
+def _csv_sanitize(value: str) -> str:
+    """Guard against CSV formula injection by prefixing dangerous leading chars."""
+    if value and value[0] in ("=", "+", "-", "@"):
+        return "\t" + value
+    return value
+
+
 def _get_manager():
     from ..main import app
     return app.state.scan_manager
@@ -76,12 +83,12 @@ async def dup_status(
 @router.get("/reports/export/{scan_id}")
 async def export(
     scan_id: str,
-    format: str = Query("csv", pattern="^(csv|json)$"),
+    fmt: str = Query("csv", pattern="^(csv|json)$"),
     user=Depends(require_token(False)),
 ):
     store = _get_store(scan_id)
     rows = await store.get_top_large(scan_id, limit=100000, min_size=0)
-    if format == "json":
+    if fmt == "json":
         content = json.dumps(rows, ensure_ascii=False, indent=2)
         return StreamingResponse(
             iter([content]),
@@ -94,7 +101,7 @@ async def export(
     writer = csv.DictWriter(buf, fieldnames=fieldnames)
     writer.writeheader()
     for r in rows:
-        writer.writerow(r)
+        writer.writerow({k: _csv_sanitize(str(v)) for k, v in r.items()})
     return StreamingResponse(
         iter([buf.getvalue()]),
         media_type="text/csv",

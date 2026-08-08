@@ -107,7 +107,7 @@ async def test_export_csv(tmp_path, managers):
     await store.insert_entry("s1", _entry(str(tmp_path / "big2.bin"), 500))
     await store.flush()
     async with await _client() as client:
-        r = await client.get("/reports/export/s1", params={"format": "csv"},
+        r = await client.get("/reports/export/s1", params={"fmt": "csv"},
                              headers=READ_HEADERS)
     assert r.status_code == 200
     assert "text/csv" in r.headers["content-type"]
@@ -123,7 +123,7 @@ async def test_export_json(tmp_path, managers):
     await store.insert_entry("s1", _entry(str(tmp_path / "big1.bin"), 1000))
     await store.flush()
     async with await _client() as client:
-        r = await client.get("/reports/export/s1", params={"format": "json"},
+        r = await client.get("/reports/export/s1", params={"fmt": "json"},
                              headers=READ_HEADERS)
     assert r.status_code == 200
     assert "application/json" in r.headers["content-type"]
